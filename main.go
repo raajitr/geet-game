@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	spotifyapi "geet-game/spotifyapi"
-	"geet-game/websocket"
+	websocket "geet-game/websocket"
 	"log"
 	"net/http"
 )
@@ -21,18 +21,16 @@ func trackList(w http.ResponseWriter, r *http.Request) {
 	trackList := spotifyapi.FetchTracks()
 	
 	resp, _ := json.Marshal(trackList)
+	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, string(resp))
 }
 
-func room(w http.ResponseWriter, r *http.Request) {
-	ws, _ := websocket.Upgrade(w, r)
-	go websocket.Writer(ws)
-}
-
 func setupRoute() {
+	manager := websocket.NewManager()
+
 	http.HandleFunc("/", homePage)
 	http.HandleFunc("/tracklist", trackList)
-	http.HandleFunc("/room", room)
+	http.HandleFunc("/ws", manager.ServeWS)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 

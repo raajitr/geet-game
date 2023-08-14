@@ -1,9 +1,9 @@
 package websocket
 
 import (
-	"fmt"
+	"log"
 	"net/http"
-	"time"
+	"sync"
 	"github.com/gorilla/websocket"
 )
 
@@ -12,26 +12,46 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-func Upgrade(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
-	upgrader.CheckOrigin = func(r *http.Request) bool {return true}
-
-	ws, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		fmt.Println(err)
-		return ws, err
-	}
-
-	return ws, nil
+type Manager struct {
+	clients ClientList
+	sync.RWMutex
 }
 
-func Writer(conn *websocket.Conn) {
-	for {
-		ticker := time.NewTicker(5 * time.Second)
+func NewManager() *Manager {
+	return &Manager{
+		clients: make(ClientList),
+	}
+}
 
-		for t := range ticker.C {
-			fmt.Printf("Something: %+v\n", t)
-			err := conn.WriteMessage(websocket.TextMessage, []byte("213"))
-			fmt.Println(err)
-		}
+func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
+	log.Println("New Connection")
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("error")
+		return
+	}
+
+	client := NewClient(conn, m)
+	m.addClient(client)
+
+	go client.readMessages()
+	go client.writeMessages()
+}
+
+func (m *Manager) addClient(client *Client) {
+	m.Lock()
+	defer m.Unlock()
+
+	m.clients[client] = true
+}
+
+func (m *Manager) removeClient(client *Client) {
+	m.Lock()
+	defer m.Unlock()
+
+	if _, ok := m.clients[client]; ok {
+		client.connection.Close()
+		delete(m.clients, client)
 	}
 }
