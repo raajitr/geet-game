@@ -1,37 +1,37 @@
 package main
 
 import (
-	"encoding/json"
+	// "encoding/json"
 	"fmt"
 	spotifyapi "geet-game/spotifyapi"
-	websocket "geet-game/websocket"
-	"log"
 	"net/http"
+
+	ws "geet-game/ws"
+	// "log"
+
+	"github.com/gin-gonic/gin"
 )
 
-func homePage(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello World")
+func homePage(c *gin.Context) {
+	c.String(http.StatusOK, "Hello World")
 }
 
-func trackList(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
-		return
-	}
+func trackList(c *gin.Context) {
 	trackList := spotifyapi.FetchTracks()
-	
-	resp, _ := json.Marshal(trackList)
-	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, string(resp))
+	c.JSON(http.StatusOK, trackList)
 }
 
 func setupRoute() {
-	manager := websocket.NewManager()
+	manager := ws.NewManager()
+	router := gin.Default()
 
-	http.HandleFunc("/", homePage)
-	http.HandleFunc("/tracklist", trackList)
-	http.HandleFunc("/ws", manager.ServeWS)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	router.GET("/", homePage)
+	router.GET("/tracklist", trackList)
+	router.GET("/ws/:id", manager.ServeWS)
+	// http.HandleFunc("/ws/room", manager.ServeWS)
+	// log.Fatal(http.ListenAndServe(":8080", nil))
+
+	router.Run(":8080")
 }
 
 func main() {
